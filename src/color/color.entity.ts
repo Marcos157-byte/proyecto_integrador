@@ -5,7 +5,7 @@ export class Color {
     @PrimaryGeneratedColumn('uuid')
     id_color: string;
 
-    @Column()
+    @Column({type: 'varchar'})
     color: string;
 
     @OneToMany(() => Producto, (producto) => producto.color, {onDelete: 'CASCADE'})

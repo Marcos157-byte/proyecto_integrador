@@ -18,6 +18,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MovimientoInventarioModule } from './movimiento_inventario/movimiento_inventario.module';
 import { VentaModule } from './venta/venta.module';
 import { VentaDetalleModule } from './venta_detalle/venta_detalle.module';
+import { MailModule } from './mail/mail.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
  imports: [
@@ -50,6 +52,8 @@ import { VentaDetalleModule } from './venta_detalle/venta_detalle.module';
     MovimientoInventarioModule,
     VentaModule,
     VentaDetalleModule,
+    MailModule,
+    AuthModule,
     
   ],
   controllers: [AppController],

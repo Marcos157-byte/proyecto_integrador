@@ -1,99 +1,68 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { paginate, IPaginationOptions, Pagination } from 'nestjs-typeorm-paginate';
-import { Color } from './color.entity';
-import { SuccessResponseDto, ErrorResponseDto } from 'src/common/dto/response.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Color } from "./color.entity";
+import { QueryDto } from "src/common/dto/query.dto";
+import { CreateColorDto } from "./dto/create-color.dto";
+import { UpdateColorDto } from "./dto/update-color.dto";
+import { SuccessResponseDto } from "src/common/dto/response.dto";
+import { Repository } from "typeorm";
+import _ from "mongoose-paginate-v2";
 
 @Injectable()
 export class ColorService {
   constructor(
     @InjectRepository(Color)
-    private readonly colorRepository: Repository<Color>,
-  ) {}
+    private readonly colorRepository: Repository<Color> ) {}
+  async create(createColorDto: CreateColorDto) {
+    const color = this.colorRepository.create(createColorDto);
+    const saved = await this.colorRepository.save(color);
+    return new SuccessResponseDto('Color creado correctamente', saved);
 
-  // Crear color
-  async create(dto: Partial<Color>): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const color = this.colorRepository.create(dto);
-      const saved = await this.colorRepository.save(color);
-      return new SuccessResponseDto('Color creado correctamente', saved);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al crear el color', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+  }
+  async findAll(query:QueryDto) {
+    const {page, limit, search,searchField,sort,order} = query;
+
+    const qb = this.colorRepository.createQueryBuilder('color')
+    .skip((page -1) * limit)
+    .take(limit)
+    if(search && searchField) {
+      qb.andWhere(`color.${searchField} LIKE :search`, {search: `${search}`});
     }
-  }
+    if(sort) {
+      qb.orderBy(`color.${sort}`, order ?? 'ASC');
 
-  // Listar colores con paginación
-  async findAll(options: IPaginationOptions): Promise<Pagination<Color>> {
-    const queryBuilder = this.colorRepository.createQueryBuilder('color');
-    queryBuilder.orderBy('color.color', 'ASC');
-    return paginate<Color>(queryBuilder, options);
-  }
-
-  // Buscar color por ID
-  async findOne(id_color: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const color = await this.colorRepository.findOne({
-        where: { id_color },
-        relations: ['productos'],
-      });
-      if (!color) {
-        throw new HttpException(
-          new ErrorResponseDto(`Color con id ${id_color} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return new SuccessResponseDto('Color encontrado', color);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al buscar el color', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
     }
+    const [data, total] = await qb.getManyAndCount();
+    return new SuccessResponseDto('Color registado correctamente', {
+      data,
+      total,
+      page,
+      limit
+    });
   }
+  
+  async findOne(id_color:string) {
+    const color = await this.colorRepository.findOne({where: {id_color}});
 
-  // Actualizar color
-  async update(id_color: string, dto: Partial<Color>): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const color = await this.colorRepository.findOne({ where: { id_color } });
-      if (!color) {
-        throw new HttpException(
-          new ErrorResponseDto(`Color con id ${id_color} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
+    if(!color) throw new NotFoundException('Color no encontrado');
+    return new SuccessResponseDto('Color encontrado correctamente', color);
 
-      Object.assign(color, dto);
-      const updated = await this.colorRepository.save(color);
-      return new SuccessResponseDto('Color actualizado correctamente', updated);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al actualizar el color', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
   }
-
-  // Eliminar color
-  async remove(id_color: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const color = await this.colorRepository.findOne({ where: { id_color } });
-      if (!color) {
-        throw new HttpException(
-          new ErrorResponseDto(`Color con id ${id_color} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      await this.colorRepository.remove(color);
-      return new SuccessResponseDto('Color eliminado correctamente', color);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al eliminar el color', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+  async update(id_color:string, updateColorDto:UpdateColorDto) {
+    const color = await this.colorRepository.findOne({where: {id_color}});
+    if(!color) throw new NotFoundException('Color no encontrado');
+    Object.assign(color, updateColorDto);
+    const update = await this.colorRepository.save(color);
+    return new SuccessResponseDto('Color actializado correctamente', update);
   }
+  async remove(id_color: string) {
+    const color = await this.colorRepository.findOne({where: {id_color}})
+    if(!color) throw new NotFoundException('Color no encontrado');
+    const eliminar = await this.colorRepository.remove(color);
+    return new SuccessResponseDto('Color eliminado correctamente',null)
+  }
+  
+
+  
+
 }

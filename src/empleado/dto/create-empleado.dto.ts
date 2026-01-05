@@ -1,29 +1,44 @@
-import { IsString,IsNumber,IsDate,IsBoolean } from "class-validator";
+import { IsString,IsNumber,IsDate,IsBoolean, MaxLength, IsNotEmpty, IsOptional } from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateEmpleadoDto {
-@IsString()
+  @IsString()
+  @MaxLength(100)
+  @IsNotEmpty()
   nombre: string;
-
+  @IsOptional()
   @IsString()
+  @MaxLength(100)
+  @IsNotEmpty()
   segundoNombre: string;
-
   @IsString()
+  @MaxLength(100)
+  @IsNotEmpty()
   apellido: string;
 
   @IsString()
+  @MaxLength(100)
+  @IsNotEmpty()
   segundoApellido: string;
 
   @IsString()
-  cedula: string;   // ✅ coincide con la entidad
+  @MaxLength(10)
+  @IsNotEmpty()
+  cedula: string;   
 
   @IsString()
+  @MaxLength(200)
+  @IsNotEmpty()
   direccion: string;
 
   @IsString()
-  telefono: string; // ✅ coincide con la entidad
+  @MaxLength(15)
+  @IsNotEmpty()
+  telefono: string; 
 
   @IsString()
+  @MaxLength(20)
+  @IsNotEmpty()
   genero: string;
 
   @Type(() => Number)
@@ -32,9 +47,8 @@ export class CreateEmpleadoDto {
 
   @Type(() => Date)
   @IsDate()
-  fechaNacimineto: Date;
+  fechaNacimiento: Date;
 
-  @IsBoolean()
-  estado: boolean;
+  
 
 }

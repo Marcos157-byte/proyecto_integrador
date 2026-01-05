@@ -1,47 +1,37 @@
-import { 
-  Controller, Get, Post, Put, Delete, Param, Body, Query 
-} from '@nestjs/common';
-import { ColorService } from './color.service';
-import { QueryDto } from 'src/common/dto/query.dto';
-import { SuccessResponseDto, ErrorResponseDto } from 'src/common/dto/response.dto';
-import { Pagination } from 'nestjs-typeorm-paginate';
-import { Color } from './color.entity';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { ColorService } from "./color.service";
+import { CreateColorDto } from "./dto/create-color.dto";
+import { UpdateColorDto } from "./dto/update-color.dto";
+import { QueryDto } from "src/common/dto/query.dto";
 
 @Controller('colores')
 export class ColorController {
   constructor(private readonly colorService: ColorService) {}
 
-  // Crear color
   @Post()
-  async create(@Body() dto: Partial<Color>): Promise<SuccessResponseDto | ErrorResponseDto> {
-    return this.colorService.create(dto);
+  async create(@Body() createColorDto: CreateColorDto){
+    return this.colorService.create(createColorDto);
   }
 
-  // Listar colores con paginación
   @Get()
-  async findAll(@Query() query: QueryDto): Promise<Pagination<Color>> {
-    const { page, limit } = query;
-    return this.colorService.findAll({ page, limit });
+  async findAll(@Query() query: QueryDto){
+    return this.colorService.findAll(query);
   }
 
-  // Buscar color por ID
-  @Get(':id')
-  async findOne(@Param('id') id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    return this.colorService.findOne(id);
+  @Get(':id_color')
+  async findOne(@Param('id_color') id_color:string) {
+    return this.colorService.findOne(id_color);
   }
 
-  // Actualizar color
-  @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() dto: Partial<Color>,
-  ): Promise<SuccessResponseDto | ErrorResponseDto> {
-    return this.colorService.update(id, dto);
+  @Put(':id_color')
+  async update(@Param('id_color') id_color: string, @Body() updateColorDto:UpdateColorDto){
+    return this.colorService.update(id_color,updateColorDto);
   }
 
-  // Eliminar color
-  @Delete(':id')
-  async remove(@Param('id') id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    return this.colorService.remove(id);
+  @Delete(':id_color')
+  async remove(@Param('id_color') id_color:string){
+    return this.colorService.remove(id_color);
   }
+
+
 }

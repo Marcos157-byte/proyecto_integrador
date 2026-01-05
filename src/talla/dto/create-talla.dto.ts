@@ -1,6 +1,8 @@
-import { IsString } from "class-validator";
+import { IsNotEmpty, IsString, MaxLength } from "class-validator";
 
 export class CreateTallaDto {
     @IsString()
-    talla: string;
+    @MaxLength(10)
+    @IsNotEmpty()
+    nombre: string;
 }

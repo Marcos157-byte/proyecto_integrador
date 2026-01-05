@@ -5,15 +5,15 @@ import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from "typeorm";
 export class Proveedor {
     @PrimaryGeneratedColumn('uuid')
     id_proveedor: string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     nombre: string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     contacto: string;
-    @Column()
+    @Column({type: 'varchar', length:15})
     telefono: string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     email: string;
-    @Column()
+    @Column({type: 'varchar', length: 100})
     direccion: string; 
     @OneToMany(() => Producto, (producto) => producto.proveedor)
     productos:Producto[]

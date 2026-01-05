@@ -7,13 +7,13 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColum
 export class Usuario {
     @PrimaryGeneratedColumn('uuid')
     id_usuario: string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     nombre: string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     email: string;
-    @Column()
+    @Column({type: 'varchar', length:255})
     password: string;
-    @Column()
+    @Column({type: 'boolean', default:true})
     activo: boolean;
     @ManyToOne(() => Empleado, (empleado) => empleado.usuarios, {onDelete: 'CASCADE'})
     @JoinColumn({name: "id_empleado"})

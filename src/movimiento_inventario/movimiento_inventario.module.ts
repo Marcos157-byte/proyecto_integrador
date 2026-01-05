@@ -12,7 +12,7 @@ import { MovimientoInventario, MovimientoInventarioSchema } from './movimiento_i
   ],
   controllers: [MovimientoInventarioController],
   providers: [MovimientoInventarioService],
-  exports: [MovimientoInventarioService], // opcional, si lo usas en otros módulos
+  exports: [MongooseModule], // opcional, si lo usas en otros módulos
 })
 
 export class MovimientoInventarioModule {}

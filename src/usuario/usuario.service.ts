@@ -1,113 +1,96 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { paginate, IPaginationOptions, Pagination } from 'nestjs-typeorm-paginate';
+
 import { Usuario } from './usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UptateUsuarioDto } from './dto/update-usuario.dto';
 import { Empleado } from 'src/empleado/empleado.entity';
-import { SuccessResponseDto, ErrorResponseDto } from 'src/common/dto/response.dto';
-
+import { SuccessResponseDto} from 'src/common/dto/response.dto';
+import * as bcrypt  from 'bcrypt'
+import { QueryDto } from 'src/common/dto/query.dto';
+import { RolUsuario } from 'src/rol_usuario/rol_usuario.entity';
 @Injectable()
 export class UsuarioService {
     constructor(
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    @InjectRepository(Empleado)
+    private readonly empleadoRepository: Repository<Empleado>
   ) {}
+  async create(createUsuarioDto:CreateUsuarioDto) {
+    const empleado = await this.empleadoRepository.findOne({where: {id_empleado: createUsuarioDto.id_empleado }})
+    if(!empleado) throw new NotFoundException('Empleado con encontrado para asignar el usuario');
+    const passwordhash = await bcrypt.hash(createUsuarioDto.password,10);
+    const usuario = this.usuarioRepository.create({...createUsuarioDto,password:passwordhash,empleado});
+    const saved = await this.usuarioRepository.save(usuario);
+    if (createUsuarioDto.rolesIds && createUsuarioDto.rolesIds.length > 0) {
+    const rolUsuarios: RolUsuario[] = createUsuarioDto.rolesIds.map(idRol => {
+      const ru = new RolUsuario();
+      ru.usuario = saved;
+      ru.rol = { id_rol: idRol } as any; // 👈 solo necesitas el id del rol
+      return ru;
+    });
 
-  // Crear usuario
-  async create(dto: CreateUsuarioDto): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const usuario = this.usuarioRepository.create({
-        ...dto,
-        empleado: { id_empleado: dto.id_empleado } as Empleado,
-      });
-      const saved = await this.usuarioRepository.save(usuario);
-      return new SuccessResponseDto('Usuario creado correctamente', saved);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al crear el usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    await this.usuarioRepository.manager.save(RolUsuario, rolUsuarios);
+  }
+
+    if(!usuario) throw new NotFoundException('Usuario no registrado');
+
+    return new SuccessResponseDto('Usuario creado correctamente', saved);
+
+  }
+  async  findAll(query:QueryDto) {
+    
+    const{page,limit,search,searchField,sort,order} = query;
+    const qb = this.usuarioRepository.createQueryBuilder('usuario')
+    .leftJoinAndSelect('usuario.empleado', 'empleado')
+    .leftJoinAndSelect('usuario.rolUsuarios','rolUsuarios')
+    .leftJoinAndSelect('rolUsuarios.rol', 'rol')
+    .skip((page -1) * limit)
+    .take(limit);
+
+    if(search && searchField) {
+      qb.andWhere(`usuario.${searchField} LIKE:search`, {search: `${search}`});
+
     }
-  }
-
-  // Listar usuarios con paginación
-  async findAll(options: IPaginationOptions): Promise<Pagination<Usuario>> {
-    const queryBuilder = this.usuarioRepository.createQueryBuilder('usuario');
-    queryBuilder
-      .leftJoinAndSelect('usuario.empleado', 'empleado')
-      .orderBy('usuario.nombre', 'ASC');
-
-    return paginate<Usuario>(queryBuilder, options);
-  }
-
-  // Buscar usuario por ID
-  async findOne(id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const usuario = await this.usuarioRepository.findOne({
-        where: { id_usuario: id },
-        relations: ['empleado'],
-      });
-      if (!usuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Usuario con id ${id} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return new SuccessResponseDto('Usuario encontrado', usuario);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al buscar el usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    if(sort) {
+      qb.orderBy(`usuario.${sort}`, order ?? `ASC`);
     }
+    const [data,total] = await qb.getManyAndCount();
+    return new SuccessResponseDto('Usuario obtenido correctamente',{
+      data,
+      total,
+      page,
+      limit
+    })
+
   }
-
-  // Actualizar usuario
-  async update(id: string, dto: UptateUsuarioDto): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const usuario = await this.usuarioRepository.findOne({ where: { id_usuario: id } });
-      if (!usuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Usuario con id ${id} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      Object.assign(usuario, dto);
-
-      if (dto.id_empleado) usuario.empleado = { id_empleado: dto.id_empleado } as Empleado;
-
-      const updated = await this.usuarioRepository.save(usuario);
-      return new SuccessResponseDto('Usuario actualizado correctamente', updated);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al actualizar el usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  // Eliminar usuario
-  async remove(id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const usuario = await this.usuarioRepository.findOne({ where: { id_usuario: id } });
-      if (!usuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Usuario con id ${id} no encontrado`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      await this.usuarioRepository.remove(usuario);
-      return new SuccessResponseDto('Usuario eliminado correctamente', usuario);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al eliminar el usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+  async findByEmail(email: string){
+    return this.usuarioRepository.findOne({
+    where: { email },
+    relations: ['empleado', 'rolUsuarios', 'rolUsuarios.rol'],
+  });
 }
 
+  async update (id_usuario:string, updateUsuarioDto:UptateUsuarioDto){
+    const usuario = await this.usuarioRepository.findOne({where: {id_usuario}});
+    if(!usuario) throw new NotFoundException('Usuario no encontrado');
+    Object.assign(usuario,updateUsuarioDto);
+    const update = await this.usuarioRepository.save(usuario);
+    return new SuccessResponseDto('Usuario actualizado correctamente', update);
+  }
 
+  async findOne(id_usuario:string) {
+    const usuario = await this.usuarioRepository.findOne({where: {id_usuario},relations: ['empleado', 'rolUsuarios', 'rolUsuarios.rol']});
+    if(!usuario) throw new NotFoundException('Usuario no encontrado');
+    return new SuccessResponseDto('Usuario encontrado correctamente', usuario);
+  }
+
+  async remove(id_usuario: string) {
+    const usuario = await this.usuarioRepository.findOne({where: {id_usuario}});
+    if(!usuario) throw new NotFoundException('Usuario no eliminado');
+    const eliminar = await this.usuarioRepository.remove(usuario);
+    return new SuccessResponseDto('Usuario eliminado correctamente', null);
+  }
+}

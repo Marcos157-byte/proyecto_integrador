@@ -7,28 +7,30 @@ export class Empleado{
 
     @PrimaryGeneratedColumn('uuid')
     id_empleado:string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     nombre: string
-    @Column()
+    @Column({type: 'varchar', length:100, nullable: true})
     segundoNombre:string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     apellido:string;
-    @Column()
+    @Column({type: 'varchar', length:100})
     segundoApellido:string;
-    @Column()
+    @Column({type: 'varchar', length:10})
     cedula: string;
-    @Column()
+    @Column({type: 'varchar', length:200})
     direccion: string;
-    @Column()
+    @Column({type: 'varchar', length:15})
     telefono:  string;
-    @Column()
+    @Column({type: 'varchar', length:20})
     genero: string;
-    @Column()
+    @Column({type: 'int'})
     edad:number;
-    @Column()
-    fechaNacimineto: Date;
-    @Column()
+    @Column({type: 'date'})
+    fechaNacimiento: Date;
+    @Column({type: 'boolean', default: true})
     estado: boolean;
+    @Column({type: 'timestamp', default:() => 'CURRENT_TIMESTAMP' })
+    fechaCreacion: Date;
     @OneToMany(() => Usuario, (usuario) => usuario.empleado, {onDelete: 'CASCADE'})
     usuarios:Usuario[]
 }

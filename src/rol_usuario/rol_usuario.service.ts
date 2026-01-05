@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable,  NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { paginate, IPaginationOptions, Pagination } from 'nestjs-typeorm-paginate';
@@ -8,6 +8,7 @@ import { UpdateRolUsuarioDto } from './dto/update-rol_usuario.dto';
 import { Rol } from 'src/rol/rol.entity';
 import { Usuario } from 'src/usuario/usuario.entity';
 import { SuccessResponseDto, ErrorResponseDto } from 'src/common/dto/response.dto';
+import { QueryDto } from 'src/common/dto/query.dto';
 
 
 @Injectable()
@@ -15,101 +16,63 @@ export class RolUsuarioService {
     constructor(
     @InjectRepository(RolUsuario)
     private readonly rolUsuarioRepository: Repository<RolUsuario>,
+    @InjectRepository(Rol)
+    private readonly rolRepository: Repository<Rol>,
+    @InjectRepository(Usuario)
+    private readonly usuarioRepository: Repository<Usuario>
   ) {}
+  
+  async create(createRolUsuarioDto: CreateRolUsuarioDto) {
+    const rol = await this.rolRepository.findOne({where: {id_rol:createRolUsuarioDto.id_rol}});
+    if(!rol) throw new NotFoundException('Rol no encontrado');
+    const usuario = await this.usuarioRepository.findOne({where: {id_usuario: createRolUsuarioDto.id_usuario}})
+    if(!usuario) throw new NotFoundException('Usuario no encontrado');
+    const rolUsuario =  this.rolUsuarioRepository.create({rol,usuario});
+    const saved = await this.rolUsuarioRepository.save(rolUsuario);
+    if(!saved)  throw new NotFoundException('Asignacion del rol no creado');
+    return new SuccessResponseDto('Rol asignado correctamente', saved);
+  }
+  async findAll(query:QueryDto){
+    const {page,limit,search,searchField,sort,order} = query;
+    const qb = this.rolUsuarioRepository.createQueryBuilder('rolUsuario')
+    .leftJoinAndSelect('rolUsuario', 'rol')
+    .leftJoinAndSelect('rolUsuario', 'usuario')
+    .skip((page -1)*limit)
+    .take(limit);
 
-  // Crear relación RolUsuario
-  async create(dto: CreateRolUsuarioDto): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const rolUsuario = this.rolUsuarioRepository.create({
-        rol: { id_rol: dto.id_rol } as Rol,
-        usuario: { id_usuario: dto.id_usuario } as Usuario,
-      });
-      const saved = await this.rolUsuarioRepository.save(rolUsuario);
-      return new SuccessResponseDto('Relación rol-usuario creada correctamente', saved);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al crear la relación rol-usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    if(search && searchField) {
+      qb.andWhere(`rolUsuario.${searchField} LIKE: search`, {search: `${search}`});
     }
+
+    if(sort) {
+      qb.orderBy(`rolUsuario.${sort}`, order ?? `ASC`);
+    }
+    const [data,total] = await qb.getManyAndCount();
+    if(!data || data.length === 0) throw new NotFoundException('No se encontro asignacion de rol')
+    return new SuccessResponseDto('Asignaciones obtenidas correctamente', {
+      data,
+      total,
+      page,
+      limit});
   }
 
-  // Listar relaciones con paginación
-  async findAll(options: IPaginationOptions): Promise<Pagination<RolUsuario>> {
-    const queryBuilder = this.rolUsuarioRepository.createQueryBuilder('rolUsuario');
-    queryBuilder
-      .leftJoinAndSelect('rolUsuario.rol', 'rol')
-      .leftJoinAndSelect('rolUsuario.usuario', 'usuario')
-      .orderBy('rolUsuario.id_rolUsuario', 'ASC');
+  async findOne(id_rolUsuario: string) {
+    const rolUsuario = await this.rolUsuarioRepository.findOne({where: {id_rolUsuario}})
+    if(!rolUsuario) throw new NotFoundException('Asingacion de rol no encontrado');
+    return new SuccessResponseDto('Asignacion de rol encontrado',rolUsuario);
 
-    return paginate<RolUsuario>(queryBuilder, options);
   }
-
-  // Buscar relación por ID
-  async findOne(id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const rolUsuario = await this.rolUsuarioRepository.findOne({
-        where: { id_rolUsuario: id },
-        relations: ['rol', 'usuario'],
-      });
-      if (!rolUsuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Relación rol-usuario con id ${id} no encontrada`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return new SuccessResponseDto('Relación rol-usuario encontrada', rolUsuario);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al buscar la relación rol-usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+  async update(id_rolUsuario: string, updateRolUsuarioDto: UpdateRolUsuarioDto) {
+    const rolUsuario = await this.rolUsuarioRepository.findOne({where: {id_rolUsuario}});
+    if(!rolUsuario) throw new NotFoundException('Asignacion de rol no actualizada');
+    Object.assign(rolUsuario,updateRolUsuarioDto);
+    const update = await this.rolUsuarioRepository.save(rolUsuario);
+    return new SuccessResponseDto('Asignacion de rol actualizada', update);
   }
-
-  // Actualizar relación
-  async update(id: string, dto: UpdateRolUsuarioDto): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const rolUsuario = await this.rolUsuarioRepository.findOne({ where: { id_rolUsuario: id } });
-      if (!rolUsuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Relación rol-usuario con id ${id} no encontrada`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      if (dto.id_rol) rolUsuario.rol = { id_rol: dto.id_rol } as Rol;
-      if (dto.id_usuario) rolUsuario.usuario = { id_usuario: dto.id_usuario } as Usuario;
-
-      const updated = await this.rolUsuarioRepository.save(rolUsuario);
-      return new SuccessResponseDto('Relación rol-usuario actualizada correctamente', updated);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al actualizar la relación rol-usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  // Eliminar relación
-  async remove(id: string): Promise<SuccessResponseDto | ErrorResponseDto> {
-    try {
-      const rolUsuario = await this.rolUsuarioRepository.findOne({ where: { id_rolUsuario: id } });
-      if (!rolUsuario) {
-        throw new HttpException(
-          new ErrorResponseDto(`Relación rol-usuario con id ${id} no encontrada`, HttpStatus.NOT_FOUND),
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      await this.rolUsuarioRepository.remove(rolUsuario);
-      return new SuccessResponseDto('Relación rol-usuario eliminada correctamente', rolUsuario);
-    } catch (error) {
-      throw new HttpException(
-        new ErrorResponseDto('Error al eliminar la relación rol-usuario', HttpStatus.INTERNAL_SERVER_ERROR, error.message),
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+  async remove(id_rolUsuario:string) {
+    const rolUsuario = await this.rolUsuarioRepository.findOne({where: {id_rolUsuario}});
+    if(!rolUsuario) throw new NotFoundException('Asigancion de rol no eliminada');
+    const eliminar  = await this.rolUsuarioRepository.remove(rolUsuario);
+    return new SuccessResponseDto('Asignacion de rol eliminada', null);
   }
 }
-
-

@@ -1,69 +1,64 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { paginate, IPaginationOptions, Pagination } from 'nestjs-typeorm-paginate';
-import { Categoria } from './categoria.entity';
-import { QueryDto } from 'src/common/dto/query.dto';
-import { CreateCategoriaDto } from './dto/create-categoria.dto';
-import { UpdateCategoriaDto } from './dto/update-categoria.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import {  Model, PaginateModel } from "mongoose";
+import { Categoria } from "./categoria.schema";
+import { CreateCategoriaDto } from "./dto/create-categoria.dto";
+import { UpdateCategoriaDto } from "./dto/update-categoria.dto";
+import { SuccessResponseDto } from "src/common/dto/response.dto";
+import { QueryDto } from "src/common/dto/query.dto";
+
 
 @Injectable()
 export class CategoriaService {
   constructor(
-    @InjectRepository(Categoria)
-    private readonly categoriaRepository: Repository<Categoria>,
+    @InjectModel(Categoria.name)
+    private readonly categoriaModel: Model<Categoria>
   ) {}
 
-  // Crear categoría
-  async create(createCategoriaDto: CreateCategoriaDto): Promise<Categoria | null> {
-    try {
-      const categoria = this.categoriaRepository.create(createCategoriaDto);
-      return await this.categoriaRepository.save(categoria);
-    } catch (error) {
-      console.error('Error al crear la categoría', error);
-      return null;
-    }
+  async create(createCategoriaDto: CreateCategoriaDto) {
+    const categoria = new this.categoriaModel(createCategoriaDto);
+    const saved = await categoria.save();
+    return new SuccessResponseDto('Categoria creada correctamente', saved)
   }
 
-  // Listar categorías con paginación
-  async findAll(options: IPaginationOptions): Promise<Pagination<Categoria>> {
-    const queryBuilder = this.categoriaRepository.createQueryBuilder('categoria');
-    queryBuilder.orderBy('categoria.nombre', 'ASC');
-    return paginate<Categoria>(queryBuilder, options);
+  async findAll(query: QueryDto) {
+    const {page, limit, search,searchField,sort,order} = query;
+
+    const options: any = {
+      page,
+      limit,
+      sort: sort ? { [sort]: order ?? 'ASC'} : undefined,
+    };
+    const filter: any = {};
+    if(search && searchField) {
+      filter[searchField] = {$regex: search, $options: 'i'};
+    }
+
+    const result =  await (this.categoriaModel as PaginateModel<Categoria>).paginate(filter, options);
+
+
+    return new SuccessResponseDto('Categorias obtenidas correctamente', result);
+  }
+  async findOne(id_categoria: string) {
+    const categoria = await this.categoriaModel.findOne({id_categoria}).exec();
+    if(!categoria) throw new NotFoundException('Categoria no encontrada');
+    return new SuccessResponseDto('Categoria encontrada', categoria);
   }
 
-  // Buscar una categoría por ID
-  async findOne(id_categoria: string): Promise<Categoria | null> {
-    try {
-      return await this.categoriaRepository.findOne({ where: { id_categoria } });
-    } catch (error) {
-      console.error('Error al buscar la categoría', error);
-      return null;
-    }
+  async update(id_categoria:string, updateCategoriaDto: UpdateCategoriaDto) {
+    const categoria = await this.categoriaModel.findOneAndUpdate(
+      {id_categoria: id_categoria},
+      updateCategoriaDto,
+      {new: true},
+    ).exec();
+    if (!categoria) throw new NotFoundException('Categoria no encontrada');
+    return new SuccessResponseDto('Categoria actualizada correctamente', categoria);
   }
 
-  // Actualizar categoría
-  async update(id_categoria: string, updateCategoriaDto: UpdateCategoriaDto): Promise<Categoria | null> {
-    try {
-      const categoria = await this.categoriaRepository.findOne({ where: { id_categoria } });
-      if (!categoria) return null;
-      Object.assign(categoria, updateCategoriaDto);
-      return await this.categoriaRepository.save(categoria);
-    } catch (error) {
-      console.error('Error al actualizar la categoría', error);
-      return null;
-    }
+  async remove(id_categoria: string) {
+    const categoria = await this.categoriaModel.findOneAndDelete({id_categoria}).exec();
+    if(!categoria) throw new NotFoundException('Categoria no encontrada');
+    return new SuccessResponseDto('Categria eliminada correctamente', null);
   }
 
-  // Eliminar categoría
-  async remove(id_categoria: string): Promise<Categoria | null> {
-    try {
-      const categoria = await this.categoriaRepository.findOne({ where: { id_categoria } });
-      if (!categoria) return null;
-      return await this.categoriaRepository.remove(categoria);
-    } catch (error) {
-      console.error('Error al eliminar la categoría', error);
-      return null;
-    }
-  }
 }

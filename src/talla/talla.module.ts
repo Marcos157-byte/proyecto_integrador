@@ -1,12 +1,18 @@
+// talla.module.ts
 import { Module } from '@nestjs/common';
-import { TallaController } from './talla.controller';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Talla, TallaSchema } from './talla.schema';
 import { TallaService } from './talla.service';
-import { Talla } from './talla.entity';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TallaController } from './talla.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Talla])],
+  imports: [
+    MongooseModule.forFeature([{ name: Talla.name, schema: TallaSchema }]),
+  ],
+  providers: [TallaService],
   controllers: [TallaController],
-  providers: [TallaService]
+  exports: [
+    MongooseModule, // 👈 exporta el MongooseModule para que otros módulos puedan usar TallaModel
+  ],
 })
 export class TallaModule {}

@@ -12,44 +12,24 @@ export class RolController {
   constructor(private readonly rolService: RolService) {}
 
   @Post()
-  async create(@Body() dto: CreateRolDto) {
-    const rol = await this.rolService.create(dto);
-    return new SuccessResponseDto('Rol creado con éxito', rol);
+  async create(@Body() createRolDto:CreateRolDto) {
+    return this.rolService.create(createRolDto);
   }
-
   @Get()
-  async findAll(
-    @Query() query: QueryDto,
-  ): Promise<SuccessResponseDto<Pagination<Rol>>> {
-    if (query.limit && query.limit > 100) {
-      query.limit = 100;
-    }
-
-    const result = await this.rolService.findAll(query);
-
-    if (!result) throw new InternalServerErrorException('No se pudieron obtener los roles');
-
-    return new SuccessResponseDto('Roles obtenidos con éxito', result);
+  async findAll(@Query() query:QueryDto) {
+    return this.rolService.findAll(query);
   }
-
-  @Get(':id_rol')
+  @Get(':id_rol') 
   async findOne(@Param('id_rol') id_rol: string) {
-    const rol = await this.rolService.findOne(id_rol);
-    if (!rol) throw new NotFoundException('Rol no encontrado');
-    return new SuccessResponseDto('Rol obtenido con éxito', rol);
+    return this.rolService.findOne(id_rol);
   }
+  @Put(':id_rol') 
+  async update(@Param('id_rol') id_rol:string, @Body() updateRolDto:UpdateRolDto) {
+    return this.rolService.update(id_rol,updateRolDto);
 
-  @Put(':id_rol')
-  async update(@Param('id_rol') id_rol: string, @Body() dto: UpdateRolDto) {
-    const rol = await this.rolService.update(id_rol, dto);
-    if (!rol) throw new NotFoundException('Rol no encontrado');
-    return new SuccessResponseDto('Rol actualizado con éxito', rol);
   }
-
   @Delete(':id_rol')
-  async remove(@Param('id_rol') id_rol: string) {
-    const rol = await this.rolService.remove(id_rol);
-    if (!rol) throw new NotFoundException('Rol no encontrado');
-    return new SuccessResponseDto('Rol eliminado con éxito', rol);
+  async remove(@Param('id_rol') id_rol:string) {
+    return this.rolService.remove(id_rol);
   }
 }

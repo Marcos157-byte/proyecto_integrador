@@ -1,19 +1,11 @@
-import { IsUUID, IsDate, IsNumber, IsString, IsOptional } from 'class-validator';
+import { IsUUID, IsString, IsOptional, MaxLength, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CreateVentaDetalleDto } from 'src/venta_detalle/dto/create-venta_detalle.dto';
 
 export class UpdateVentaDto {
   @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  fechaVenta?: Date;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Type(() => Number)
-  total?: number;
-
-  @IsOptional()
   @IsString()
+  @MaxLength(100)
   metodoPago?: string;
 
   @IsOptional()
@@ -23,4 +15,10 @@ export class UpdateVentaDto {
   @IsOptional()
   @IsUUID()
   id_usuario?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateVentaDetalleDto)
+  ventasDetalles?: CreateVentaDetalleDto[];
 }
