@@ -16,10 +16,7 @@ export class CreateVentaDto {
 
   @IsOptional()
   total?: number;
-
-
-
-
+  
   @IsUUID()
   @IsNotEmpty()
   id_cliente: string;
@@ -32,4 +29,7 @@ export class CreateVentaDto {
   @ValidateNested({ each: true })
   @Type(() => CreateVentaDetalleDto)
   ventasDetalles: CreateVentaDetalleDto[];
+
+ 
+
 }

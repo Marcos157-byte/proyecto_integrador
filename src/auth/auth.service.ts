@@ -12,41 +12,41 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
- async login(loginDto: LoginDto) {
-  const user = await this.usuarioService.findByEmail(loginDto.email);
+  async login(loginDto: LoginDto) {
+    const user = await this.usuarioService.findByEmail(loginDto.email);
 
-  if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
-    throw new UnauthorizedException('Credenciales inválidas');
+    if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const roles = user.rolUsuarios.map((ru) => ru.rol.rol);
+
+    const payload = {
+      sub: user.id_usuario,
+      email: user.email,
+      roles,
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      usuario: user,
+    };
   }
 
-  // Extraer roles desde la relación intermedia
-  const roles = user.rolUsuarios.map((ru) => ru.rol.rol);
-
-  const payload = {
-    sub: user.id_usuario,
-    email: user.email,
-    roles,
-  };
-
-  return {
-    access_token: this.jwtService.sign(payload),
-    usuario: user,
-  };
-}
-
   async register(createUserDto: CreateUsuarioDto) {
-  const response = await this.usuarioService.create(createUserDto);
+  // 👇 Encriptar la contraseña antes de guardar
+  const salt = await bcrypt.genSalt(10);
+  createUserDto.password = await bcrypt.hash(createUserDto.password, salt);
 
-  // El servicio devuelve SuccessResponseDto, así que accedemos a response.data
+  const response = await this.usuarioService.create(createUserDto);
   const user = response.data;
 
-  // Extraer roles desde la relación intermedia
   const roles = user.rolUsuarios?.map((ru) => ru.rol.rol) || [];
 
   const payload = {
     sub: user.id_usuario,
     email: user.email,
-    roles, // 👈 ["admin", "user", ...]
+    roles,
   };
 
   return {
