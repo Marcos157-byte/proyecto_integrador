@@ -1,14 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ProductoService } from './producto.service';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { QueryDto } from 'src/common/dto/query.dto';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
 @Controller('productos')
 export class ProductoController {
   constructor(private readonly productoService: ProductoService) {}
 
   // Crear producto
+  @UseGuards(JwtAuthGuard,RolesGuard)
+  @Roles('Bodega')
   @Post()
   async create(@Body() dto: CreateProductoDto) {
     return this.productoService.create(dto);
