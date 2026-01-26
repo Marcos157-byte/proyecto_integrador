@@ -130,51 +130,46 @@ export class ProductoService {
   // ... (getDashboardStats y getStockCriticoDetallado se mantienen igual pero asegúrate de que el controller los envuelva en SuccessResponseDto si es necesario)
 
 
-  // --- METODOS PARA EL DASHBOARD ---
-
   async getDashboardStats() {
+    // 1. Contar total de productos
     const totalProductos = await this.productoRepo.count();
 
-    const stockCritico = await this.productoRepo.count({
-      where: { stock_total: LessThan(5) }
-    });
-
+    // 2. Calcular valor total del inventario
     const result = await this.productoRepo
       .createQueryBuilder('producto')
       .select('SUM(producto.precio * producto.stock_total)', 'totalValue')
       .getRawOne();
 
+    // 3. Obtener productos más vendidos (Top 5)
     const masVendidos = await this.productoRepo.createQueryBuilder('producto')
-      // Usamos ventasDetalles que es como lo tienes en findAll
       .leftJoin('producto.ventasDetalles', 'detalle')
       .select('producto.nombre', 'nombre')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'total_vendido')
       .groupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
-      // Ordenamos por la función de agregación directamente
       .orderBy('SUM(detalle.cantidad)', 'DESC')
       .limit(5)
       .getRawMany();
 
+    // Retornamos el formato que espera tu SuccessResponseDto
     return {
       totalProductos,
-      stockCritico,
       valorInventario: parseFloat(result.totalValue || 0),
-      masVendidos: masVendidos
+      masVendidos
     };
   }
 
-  async getStockCriticoDetallado() {
+  async getStockAlerts() {
+    // Buscamos productos con stock menor a 5 unidades (Nivel crítico)
     const productosBajos = await this.productoRepo.find({
-      where: { stock_total: LessThan(10) },
-      order: { stock_total: 'ASC' },
-      take: 5
+      where: { stock_total: LessThan(5) },
+      order: { stock_total: 'ASC' }
     });
 
-    // Enriquecer con Talla (Mongo) para saber qué talla falta
-    return await Promise.all(
+    // Enriquecemos con la talla de Mongo para que la alerta sea útil
+    const alertas = await Promise.all(
       productosBajos.map(async (p) => {
-        const talla = await this.tallaModel.findOne({ id_talla: p.id_talla }).exec();
+        const talla = await this.tallaModel.findOne({ id_talla: p.id_talla }).lean();
         return {
           nombre: p.nombre,
           stock: p.stock_total,
@@ -182,6 +177,9 @@ export class ProductoService {
         };
       })
     );
+
+    return alertas;
   }
 }
+
 

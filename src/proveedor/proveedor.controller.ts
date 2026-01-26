@@ -17,6 +17,8 @@ export class ProveedorController{
   async create(@Body() createProveedorDto:CreateProveedorDto){
     return this.proveedorService.create(createProveedorDto);
   }
+
+  
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('bodega','admintrador')
   @Get()
