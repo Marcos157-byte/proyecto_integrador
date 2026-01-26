@@ -1,4 +1,3 @@
-
 import { Rol } from "src/rol/rol.entity";
 import { Usuario } from "src/usuario/usuario.entity";
 import { Entity,PrimaryGeneratedColumn, ManyToOne, JoinColumn } from "typeorm";

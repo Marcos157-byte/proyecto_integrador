@@ -24,8 +24,7 @@ export class UsuarioController {
   constructor(private readonly usuarioService: UsuarioService) {}
 
   // Solo "administrador" puede crear usuarios
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('administrador','Ventas')
+ 
   @Post()
   async create(@Body() createUsuarioDto: CreateUsuarioDto) {
     return this.usuarioService.create(createUsuarioDto);

@@ -1,20 +1,25 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { TallaService } from './talla.service';
 import { QueryDto } from 'src/common/dto/query.dto';
 import { SuccessResponseDto } from 'src/common/dto/response.dto';
 import { Talla } from './talla.schema';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
 @Controller('tallas')
 export class TallaController {
   constructor(private readonly tallaService: TallaService) {}
 
-  // Crear talla
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('bodega')
   @Post()
   async create(@Body() dto: Partial<Talla>): Promise<SuccessResponseDto> {
     return this.tallaService.create(dto);
   }
 
-  // Listar tallas con paginación
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('bodega')
   @Get()
   async findAll(@Query() query: QueryDto): Promise<SuccessResponseDto> {
     return this.tallaService.findAll(query);

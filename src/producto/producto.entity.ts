@@ -11,7 +11,7 @@ export class Producto {
 
     @PrimaryGeneratedColumn('uuid')
     id_producto: string;
-    @Column({type: 'varchar', length:24})
+    @Column({type: 'varchar', length:36, nullable:true})
     id_talla: string;
     @ManyToOne(() => Color, (color) => color.productos, {onDelete: 'CASCADE'})
     @JoinColumn({name: 'id_color'})
@@ -19,8 +19,8 @@ export class Producto {
     @ManyToOne(() => Proveedor, (proveedor) => proveedor.productos, {onDelete: 'CASCADE'})
     @JoinColumn({name: 'id_proveedor'})
     proveedor:Proveedor;
-    @Column({type: 'varchar', length:24})
-    categoria_id: string;
+    @Column({type: 'varchar', length:36, nullable:true})
+    id_categoria: string;
     @OneToMany(() => VentaDetalle, (ventaDetalle) => ventaDetalle.producto, {onDelete: 'CASCADE'})
     ventasDetalles: VentaDetalle[]
     @Column()

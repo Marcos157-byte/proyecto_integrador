@@ -8,6 +8,18 @@ import { QueryDto } from 'src/common/dto/query.dto';
 export class ProductoController {
   constructor(private readonly productoService: ProductoService) {}
 
+  // Endpoint para los cuadritos de arriba (KPIs)
+  @Get('dashboard/stats')
+  async getStats() {
+    return this.productoService.getDashboardStats();
+  }
+
+  // Endpoint para la lista de alertas
+  @Get('dashboard/stock-alerta')
+  async getStockAlerta() {
+    return this.productoService.getStockCriticoDetallado();
+  }
+
   // Crear producto
   @Post()
   async create(@Body() dto: CreateProductoDto) {
@@ -37,4 +49,6 @@ export class ProductoController {
   async remove(@Param('id_producto') id_producto: string) {
     return this.productoService.remove(id_producto);
   }
+
+  
 }

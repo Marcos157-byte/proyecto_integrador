@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, NotFoundException, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Venta } from './venta.entity';
@@ -259,4 +259,49 @@ export class VentaService {
     await this.ventaRepository.remove(venta);
     return new SuccessResponseDto('Venta eliminada correctamente', null);
   }
+  async productosMasVendidos(periodo: string) {
+  const qb = this.ventaRepository.createQueryBuilder("venta")
+    .leftJoin("venta.ventasDetalles", "detalle")
+    .leftJoin("detalle.producto", "producto")
+    .select("producto.nombre", "producto")
+    .addSelect("SUM(detalle.cantidad)", "cantidadVendida")
+    .groupBy("producto.id_producto")
+    .orderBy('"cantidadVendida"', "DESC");
+
+  if (periodo === "dia") {
+    qb.andWhere("venta.fechaVenta >= CURRENT_DATE");
+  } else if (periodo === "semana") {
+    qb.andWhere("venta.fechaVenta >= DATE_TRUNC('week', CURRENT_DATE)");
+  } else if (periodo === "mes") {
+    qb.andWhere("venta.fechaVenta >= DATE_TRUNC('month', CURRENT_DATE)");
+  }
+
+  const data = await qb.getRawMany();
+  return new SuccessResponseDto("Productos más vendidos", data);
+}
+async ventasPorPeriodo(periodo: 'dia' | 'semana' | 'mes') {
+  let unidad: string;
+
+  switch (periodo) {
+    case 'dia':
+      unidad = 'day';
+      break;
+    case 'semana':
+      unidad = 'week';
+      break;
+    case 'mes':
+      unidad = 'month';
+      break;
+    default:
+      throw new Error('Periodo inválido');
+  }
+
+  return this.ventaRepository
+    .createQueryBuilder('venta')
+    .select(`DATE_TRUNC('${unidad}', venta.fechaVenta)`, 'periodo')
+    .addSelect('SUM(venta.total)', 'totalVentas')
+    .groupBy(`DATE_TRUNC('${unidad}', venta.fechaVenta)`)
+    .orderBy('periodo', 'ASC')
+    .getRawMany();
+}
 }

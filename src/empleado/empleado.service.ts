@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository,ILike } from "typeorm";
 import { Empleado } from "./empleado.entity";
 import { QueryDto } from "src/common/dto/query.dto";
 import { CreateEmpleadoDto } from "./dto/create-empleado.dto";
@@ -65,4 +65,17 @@ export class EmpleadoService {
     return new SuccessResponseDto('Empleado eliminado correctamente', null);
   }
 
+
+  async findByNombre(nombre: string) {
+    const empleados = await this.empleadoRepository.find({
+      where: { nombre: ILike(`%${nombre}%`) }, // busca coincidencias parciales
+    });
+
+    if (!empleados || empleados.length === 0) {
+      throw new NotFoundException("No se encontraron empleados con ese nombre");
+    }
+
+    return new SuccessResponseDto("Empleados encontrados correctamente", empleados);
+  }
 }
+
