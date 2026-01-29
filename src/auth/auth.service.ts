@@ -15,6 +15,7 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.usuarioService.findByEmail(loginDto.email);
 
+    // 1. Validar credenciales
     if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
@@ -27,31 +28,34 @@ export class AuthService {
       roles,
     };
 
+    // 2. ✅ Limpiamos el objeto para evitar errores en el Front y proteger el hash
+    const { password, ...usuarioSinPassword } = user;
+
     return {
       access_token: this.jwtService.sign(payload),
-      usuario: user,
+      usuario: usuarioSinPassword, 
     };
   }
 
   async register(createUserDto: CreateUsuarioDto) {
-  // 👇 Encriptar la contraseña antes de guardar
-  const salt = await bcrypt.genSalt(10);
-  createUserDto.password = await bcrypt.hash(createUserDto.password, salt);
+    // ✅ Quitamos el bcrypt.hash de aquí, ya que viene encriptado del DTO/Pipe
+    const response = await this.usuarioService.create(createUserDto);
+    const user = response.data;
 
-  const response = await this.usuarioService.create(createUserDto);
-  const user = response.data;
+    const roles = user.rolUsuarios?.map((ru) => ru.rol.rol) || [];
 
-  const roles = user.rolUsuarios?.map((ru) => ru.rol.rol) || [];
+    const payload = {
+      sub: user.id_usuario,
+      email: user.email,
+      roles,
+    };
 
-  const payload = {
-    sub: user.id_usuario,
-    email: user.email,
-    roles,
-  };
+    // 3. ✅ Limpieza de seguridad para el registro
+    const { password, ...usuarioSinPassword } = user;
 
-  return {
-    access_token: this.jwtService.sign(payload),
-    usuario: user,
-  };
-}
+    return {
+      access_token: this.jwtService.sign(payload),
+      usuario: usuarioSinPassword,
+    };
+  }
 }

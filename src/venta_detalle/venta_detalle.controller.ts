@@ -12,7 +12,7 @@ export class VentaDetalleController {
   }
 
   // GET /venta-detalles/:id
-  @Get(':id')
+  @Get(':id_venta')
   async findOne(@Param('id') id: string) {
     return await this.ventaDetalleService.findOne(id);
   }

@@ -1,3 +1,4 @@
+import { Caja } from "src/caja/caja.entity";
 import { Empleado } from "src/empleado/empleado.entity";
 import { RolUsuario } from "src/rol_usuario/rol_usuario.entity";
 import { Venta } from "src/venta/venta.entity";
@@ -22,5 +23,7 @@ export class Usuario {
     rolUsuarios: RolUsuario[]
     @OneToMany(() => Venta, (venta) => venta.usuario ,{onDelete: 'CASCADE'})
     ventas: Venta[]
+    @OneToMany(() => Caja, (caja) => caja.usuario)
+    cajas: Caja[];
 
 }

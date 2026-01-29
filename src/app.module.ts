@@ -20,6 +20,8 @@ import { VentaModule } from './venta/venta.module';
 import { VentaDetalleModule } from './venta_detalle/venta_detalle.module';
 import { MailModule } from './mail/mail.module';
 import { AuthModule } from './auth/auth.module';
+import { CajaModule } from './caja/caja.module';
+import { SeedModule } from './seed/seed.module';
 
 @Module({
  imports: [
@@ -54,6 +56,8 @@ import { AuthModule } from './auth/auth.module';
     VentaDetalleModule,
     MailModule,
     AuthModule,
+    CajaModule,
+    SeedModule,
     
   ],
   controllers: [AppController],

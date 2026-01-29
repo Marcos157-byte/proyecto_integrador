@@ -8,13 +8,20 @@ import { Usuario } from 'src/usuario/usuario.entity';
 import { Producto } from 'src/producto/producto.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MovimientoInventario, MovimientoInventarioSchema } from 'src/movimiento_inventario/movimiento_inventario.schema';
+import { CajaModule } from 'src/caja/caja.module'; // Importas el módulo
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Venta, Cliente, Usuario, Producto]),
+    // 1. Entidades de Base de Datos SQL
+    TypeOrmModule.forFeature([Venta, Cliente, Usuario, Producto]), 
+    
+    // 2. Esquemas de MongoDB
     MongooseModule.forFeature([
       { name: MovimientoInventario.name, schema: MovimientoInventarioSchema },
-    ]), // 👈 aquí registras el modelo de Mongo
+    ]),
+    
+    // 3. Otros Módulos (CajaModule va AQUÍ, fuera de forFeature)
+    CajaModule, 
   ],
   providers: [VentaService],
   controllers: [VentaController],
