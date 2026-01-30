@@ -10,13 +10,13 @@ import { Roles } from "src/decorators/roles.decorator";
 @Controller('colores')
 export class ColorController {
   constructor(private readonly colorService: ColorService) {}
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard,RolesGuard)
   @Roles('bodega')
   @Post()
   async create(@Body() createColorDto: CreateColorDto){
     return this.colorService.create(createColorDto);
   }
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard,RolesGuard)
   @Roles('bodega')
   @Get()
   async findAll(@Query() query: QueryDto){

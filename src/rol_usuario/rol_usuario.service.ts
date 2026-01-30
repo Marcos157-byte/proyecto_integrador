@@ -32,29 +32,43 @@ export class RolUsuarioService {
     if(!saved)  throw new NotFoundException('Asignacion del rol no creado');
     return new SuccessResponseDto('Rol asignado correctamente', saved);
   }
-  async findAll(query:QueryDto){
-    const {page,limit,search,searchField,sort,order} = query;
-    const qb = this.rolUsuarioRepository.createQueryBuilder('rolUsuario')
-    .leftJoinAndSelect('rolUsuario', 'rol')
-    .leftJoinAndSelect('rolUsuario', 'usuario')
-    .skip((page -1)*limit)
+  async findAll(query: QueryDto) {
+  const { page, limit, search, searchField, sort, order } = query;
+
+  const qb = this.rolUsuarioRepository
+    .createQueryBuilder('rolUsuario')
+    .leftJoinAndSelect('rolUsuario.rol', 'rol')
+    .leftJoinAndSelect('rolUsuario.usuario', 'usuario')
+    .skip((page - 1) * limit)
     .take(limit);
 
-    if(search && searchField) {
-      qb.andWhere(`rolUsuario.${searchField} LIKE: search`, {search: `${search}`});
-    }
+  if (search && searchField) {
+    // Si el campo está en la entidad principal
+    qb.andWhere(`rolUsuario.${searchField} LIKE :search`, { search: `%${search}%` });
 
-    if(sort) {
-      qb.orderBy(`rolUsuario.${sort}`, order ?? `ASC`);
-    }
-    const [data,total] = await qb.getManyAndCount();
-    if(!data || data.length === 0) throw new NotFoundException('No se encontro asignacion de rol')
-    return new SuccessResponseDto('Asignaciones obtenidas correctamente', {
-      data,
-      total,
-      page,
-      limit});
+    // Si quieres buscar en relaciones, usa el alias correcto:
+    // qb.andWhere(`rol.nombre LIKE :search`, { search: `%${search}%` });
+    // qb.andWhere(`usuario.email LIKE :search`, { search: `%${search}%` });
   }
+
+  if (sort) {
+    // Igual: si el campo está en la relación, usa el alias correcto
+    qb.orderBy(`${searchField?.includes('.') ? searchField : `rolUsuario.${sort}`}`, order ?? 'ASC');
+  }
+
+  const [data, total] = await qb.getManyAndCount();
+
+  if (!data || data.length === 0) {
+    throw new NotFoundException('No se encontró asignación de rol');
+  }
+
+  return new SuccessResponseDto('Asignaciones obtenidas correctamente', {
+    data,
+    total,
+    page,
+    limit,
+  });
+}
 
   async findOne(id_rolUsuario: string) {
     const rolUsuario = await this.rolUsuarioRepository.findOne({where: {id_rolUsuario}})

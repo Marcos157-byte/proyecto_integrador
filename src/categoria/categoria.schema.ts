@@ -14,4 +14,4 @@ export class Categoria extends Document {
 
 }
 export const CategoriaSchema= SchemaFactory.createForClass(Categoria);
-CategoriaSchema.plugin(mongoosePaginate);
+CategoriaSchema.plugin(mongoosePaginate);   

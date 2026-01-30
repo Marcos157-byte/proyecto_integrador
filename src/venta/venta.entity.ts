@@ -1,3 +1,4 @@
+import { Caja } from "src/caja/caja.entity";
 import { Cliente } from "src/cliente/cliente.entity";
 import { Usuario } from "src/usuario/usuario.entity";
 import { VentaDetalle } from "src/venta_detalle/venta_detalle.entity";
@@ -32,4 +33,7 @@ export class Venta {
     @OneToMany(() => VentaDetalle, (ventaDetalle) => ventaDetalle.venta, {cascade: true, onDelete: 'CASCADE'})
     ventasDetalles: VentaDetalle[]
 
+    @ManyToOne(() => Caja, (caja) => caja.ventas, { nullable: false }) // Una venta SIEMPRE debe estar ligada a una caja
+    @JoinColumn({ name: 'id_caja' })
+    caja: Caja;
 }

@@ -9,8 +9,7 @@ export class CreateEmpleadoDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  @IsNotEmpty()
-  segundoNombre: string;
+  segundoNombre?: string;
   @IsString()
   @MaxLength(100)
   @IsNotEmpty()

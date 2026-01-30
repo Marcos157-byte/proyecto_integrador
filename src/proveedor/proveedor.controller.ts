@@ -3,17 +3,24 @@ import { ProveedorService } from "./proveedor.service";
 import { CreateProveedorDto } from "./dto/create-proveedor.dto";
 import { UpdateProveedorDto } from "./dto/update-proveedor.dto";
 import { QueryDto } from "src/common/dto/query.dto";
-
+import { JwtAuthGuard } from "src/guards/jwt-auth.guard";
+import { RolesGuard } from "src/guards/roles.guard";
+import { UseGuards } from "@nestjs/common";
+import { Roles } from "src/decorators/roles.decorator";
 @Controller('proveedores')
 
 export class ProveedorController{
   constructor(private readonly proveedorService:ProveedorService){}
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('bodega')
   @Post()
   async create(@Body() createProveedorDto:CreateProveedorDto){
     return this.proveedorService.create(createProveedorDto);
   }
 
+  
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('bodega','admintrador')
   @Get()
   async findAll(@Query() query: QueryDto) {
     return this.proveedorService.findAll(query);
