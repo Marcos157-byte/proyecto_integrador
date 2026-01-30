@@ -34,87 +34,111 @@ export class VentaService {
 
   // 1. CREAR VENTA (Con validación de Caja Abierta)
   async create(createVentaDto: CreateVentaDto) {
-    // A. Validar que el usuario tenga una caja abierta
-    const cajaActiva = await this.cajaService.getCajaActiva(createVentaDto.id_usuario);
-    if (!cajaActiva) {
-      throw new BadRequestException('No puedes realizar ventas sin haber abierto caja.');
-    }
+  // A. Validar que el usuario tenga una caja abierta y obtener su ID real
+  const resumenCaja = await this.cajaService.getCajaActiva(createVentaDto.id_usuario);
+  
+  if (!resumenCaja || !resumenCaja.id_caja) {
+    throw new BadRequestException('No puedes realizar ventas sin haber abierto caja.');
+  }
 
-    return await this.dataSource.transaction(async (manager) => {
-      // B. Validar Cliente y Usuario
-      const cliente = await manager.findOne(Cliente, { where: { id_cliente: createVentaDto.id_cliente } });
-      if (!cliente) throw new NotFoundException('Cliente no encontrado');
+  return await this.dataSource.transaction(async (manager) => {
+    // B. Validar Cliente y Usuario mediante el Transaction Manager
+    const cliente = await manager.findOne(Cliente, { 
+      where: { id_cliente: createVentaDto.id_cliente } 
+    });
+    if (!cliente) throw new NotFoundException('Cliente no encontrado');
 
-      const usuario = await manager.findOne(Usuario, { where: { id_usuario: createVentaDto.id_usuario } });
-      if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    const usuario = await manager.findOne(Usuario, { 
+      where: { id_usuario: createVentaDto.id_usuario } 
+    });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
-      // C. Crear la Venta vinculada a la CAJA activa
-      const nuevaVenta = manager.create(Venta, {
-        metodoPago: createVentaDto.metodoPago,
-        cliente,
-        usuario,
-        caja: { id_caja: cajaActiva.id_caja }, // <--- Vinculación clave para arqueo
-        subtotal: 0,
-        iva: 0,
-        total: 0,
+    // C. Crear la instancia de la Venta
+    // Se asignan objetos parciales con el ID para asegurar la relación en TypeORM
+    const nuevaVenta = manager.create(Venta, {
+      metodoPago: createVentaDto.metodoPago,
+      cliente: { id_cliente: cliente.id_cliente },
+      usuario: { id_usuario: usuario.id_usuario },
+      caja: { id_caja: resumenCaja.id_caja }, 
+      subtotal: 0,
+      iva: 0,
+      total: 0,
+      fechaVenta: new Date()
+    });
+
+    // Guardamos la venta inicialmente para generar el ID necesario para los detalles
+    const ventaGuardada = await manager.save(nuevaVenta);
+
+    let acumuladorSubtotal = 0;
+    const detallesParaGuardar: VentaDetalle[] = [];
+
+    // D. Procesar Productos e Inventario
+    for (const d of createVentaDto.ventasDetalles) {
+      const producto = await manager.findOne(Producto, { 
+        where: { id_producto: d.id_producto } 
       });
-
-      const ventaGuardada = await manager.save(nuevaVenta);
-      let subtotalVenta = 0;
-      const detallesParaGuardar: VentaDetalle[] = [];
-
-      // D. Procesar Productos e Inventario
-      for (const d of createVentaDto.ventasDetalles) {
-        const producto = await manager.findOne(Producto, { where: { id_producto: d.id_producto } });
-        if (!producto) throw new NotFoundException(`Producto ID ${d.id_producto} no encontrado`);
-
-        if (Number(producto.stock_total) < d.cantidad) {
-          throw new HttpException(`Stock insuficiente para ${producto.nombre}`, HttpStatus.BAD_REQUEST);
-        }
-
-        producto.stock_total = Number(producto.stock_total) - d.cantidad;
-        await manager.save(producto);
-
-        const detalle = manager.create(VentaDetalle, {
-          producto,
-          cantidad: d.cantidad,
-          precio_unitario: Number(producto.precio),
-          venta: ventaGuardada
-        });
-
-        detallesParaGuardar.push(detalle);
-        subtotalVenta += d.cantidad * Number(producto.precio);
-
-        // Historial en MongoDB
-        try {
-          await new this.movimientoModel({
-            id_producto: producto.id_producto,
-            id_usuario: usuario.id_usuario,
-            tipoMovimiento: 'SALIDA',
-            cantidad: d.cantidad,
-            observaciones: `Venta: ${ventaGuardada.id_venta}`,
-            motivo: 'VENTA',
-            fechaMovimiento: new Date(),
-          }).save();
-        } catch (e) { console.error("Mongo Error:", e.message); }
+      
+      if (!producto) {
+        throw new NotFoundException(`Producto ID ${d.id_producto} no encontrado`);
       }
 
-      await manager.save(VentaDetalle, detallesParaGuardar);
+      // Validación de Stock estricta
+      const stockActual = Number(producto.stock_total);
+      if (stockActual < d.cantidad) {
+        throw new BadRequestException(`Stock insuficiente para ${producto.nombre}. Disponible: ${stockActual}`);
+      }
 
-      // E. Totales finales (IVA 15%)
-      ventaGuardada.subtotal = Number(subtotalVenta.toFixed(2));
-      ventaGuardada.iva = Number((subtotalVenta * 0.15).toFixed(2));
-      ventaGuardada.total = Number((ventaGuardada.subtotal + ventaGuardada.iva).toFixed(2));
+      // Actualizar Stock del producto
+      producto.stock_total = stockActual - d.cantidad;
+      await manager.save(producto);
 
-      await manager.save(ventaGuardada);
-
-      return new SuccessResponseDto('Venta registrada con éxito', {
-        id_venta: ventaGuardada.id_venta,
-        total: ventaGuardada.total,
-        caja_afectada: cajaActiva.id_caja
+      // Crear el detalle de la venta
+      const precioUnitario = Number(producto.precio);
+      const detalle = manager.create(VentaDetalle, {
+        producto: { id_producto: producto.id_producto },
+        cantidad: d.cantidad,
+        precio_unitario: precioUnitario,
+        venta: { id_venta: ventaGuardada.id_venta }
       });
+
+      detallesParaGuardar.push(detalle);
+      acumuladorSubtotal += d.cantidad * precioUnitario;
+
+      // Historial en MongoDB (Operación fuera de la transacción SQL principal)
+      try {
+        await new this.movimientoModel({
+          id_producto: producto.id_producto,
+          id_usuario: usuario.id_usuario,
+          tipoMovimiento: 'SALIDA',
+          cantidad: d.cantidad,
+          observaciones: `Venta: ${ventaGuardada.id_venta}`,
+          motivo: 'VENTA',
+          fechaMovimiento: new Date(),
+        }).save();
+      } catch (e) {
+        console.error("Error al registrar movimiento en Mongo:", e.message);
+      }
+    }
+
+    // E. Guardar todos los detalles de una sola vez
+    await manager.save(VentaDetalle, detallesParaGuardar);
+
+    // F. Calcular Totales Finales (IVA 15%)
+    // Actualizamos la entidad ya guardada con los valores finales
+    ventaGuardada.subtotal = Number(acumuladorSubtotal.toFixed(2));
+    ventaGuardada.iva = Number((acumuladorSubtotal * 0.15).toFixed(2));
+    ventaGuardada.total = Number((ventaGuardada.subtotal + ventaGuardada.iva).toFixed(2));
+
+    // El segundo 'save' actualiza los montos sin error de campos faltantes
+    await manager.save(ventaGuardada);
+
+    return new SuccessResponseDto('Venta registrada con éxito', {
+      id_venta: ventaGuardada.id_venta,
+      total: ventaGuardada.total,
+      caja_afectada: resumenCaja.id_caja
     });
-  }
+  });
+}
   async update(id_venta: string, updateVentaDto: UpdateVentaDto) {
     // 1. Verificar que la venta existe
     const ventaExistente = await this.ventaRepository.findOne({

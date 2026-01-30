@@ -62,7 +62,7 @@ export class VentaController {
   /**
    * 5. Historial General (Para administradores)
    */
-  @Get('all')
+  @Get()
   @Roles('admin')
   async findAll(@Query() query: QueryDto) {
     return this.ventaService.findAll(query);
