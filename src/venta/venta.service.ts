@@ -315,4 +315,57 @@ export class VentaService {
     const data = await qb.limit(5).getRawMany();
     return new SuccessResponseDto("Top productos", data);
   }
+  // 8. REPORTE: VENTAS POR USUARIO (Ranking para el Admin)
+  async rankingVendedores(fechaInicio?: Date, fechaFin?: Date) {
+    const qb = this.ventaRepository.createQueryBuilder("venta")
+      .leftJoin("venta.usuario", "usuario")
+      .select("usuario.id_usuario", "id_usuario")
+      .addSelect("usuario.nombre", "nombre_vendedor")
+      .addSelect("COUNT(venta.id_venta)", "total_ventas")
+      .addSelect("SUM(venta.total)", "monto_total_acumulado")
+      .groupBy("usuario.id_usuario, usuario.nombre")
+      .orderBy('"monto_total_acumulado"', "DESC");
+
+    // Si quieres filtrar por fechas (ej. las ventas de este mes)
+    if (fechaInicio && fechaFin) {
+      qb.andWhere("venta.fechaVenta BETWEEN :inicio AND :fin", { 
+        inicio: fechaInicio, 
+        fin: fechaFin 
+      });
+    }
+
+    const data = await qb.getRawMany();
+    return new SuccessResponseDto("Ranking de vendedores obtenido", data);
+  }
+
+  // 9. DETALLE: TODAS LAS VENTAS DE UN USUARIO ESPECÍFICO
+  async findVentasByUsuario(id_usuario: string) {
+    const ventas = await this.ventaRepository.find({
+      where: { usuario: { id_usuario } },
+      relations: ['cliente', 'ventasDetalles', 'ventasDetalles.producto'],
+      order: { fechaVenta: 'DESC' }
+    });
+
+    if (!ventas.length) {
+      throw new NotFoundException('Este usuario no tiene ventas registradas.');
+    }
+
+    // Mapeamos para que el frontend reciba algo limpio
+    const data = ventas.map(v => ({
+      factura: v.id_venta.substring(0, 8), // Un ID corto para la tabla
+      fecha: v.fechaVenta,
+      cliente: v.cliente?.nombre || 'Consumidor Final',
+      cedula: v.cliente?.cedula || 'N/A',
+      total: Number(v.total),
+      metodo: v.metodoPago,
+      items: v.ventasDetalles.map(d => ({
+        producto: d.producto.nombre,
+        cantidad: d.cantidad,
+        subtotal: Number(d.precio_unitario) * d.cantidad
+      }))
+    }));
+
+    return new SuccessResponseDto(`Ventas del usuario obtenidas`, data);
+  }
+  
 }
