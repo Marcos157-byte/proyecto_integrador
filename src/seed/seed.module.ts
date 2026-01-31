@@ -8,7 +8,7 @@ import { Rol } from 'src/rol/rol.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, Empleado, RolUsuario, Rol]) // <--- Agrega Rol aquí
+    TypeOrmModule.forFeature([Usuario, Empleado, RolUsuario, Rol]) ,SeedModule// <--- Agrega Rol aquí
   ],
   providers: [SeedService],
 })
