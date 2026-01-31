@@ -368,4 +368,36 @@ export class VentaService {
     return new SuccessResponseDto(`Ventas del usuario obtenidas`, data);
   }
   
+  
+  async reportePorRango(desde: string, hasta: string) {
+  const inicio = new Date(desde);
+  inicio.setHours(0, 0, 0, 0);
+
+  const fin = new Date(hasta);
+  fin.setHours(23, 59, 59, 999);
+
+  const ventas = await this.ventaRepository.find({
+    where: {
+      fechaVenta: Between(inicio, fin),
+    },
+    // Cargamos todas las relaciones necesarias
+    relations: ['usuario', 'cliente', 'ventasDetalles', 'ventasDetalles.producto'],
+    order: { fechaVenta: 'DESC' }
+  });
+
+  // Mapeo detallado para el Excel y la Tabla
+  return ventas.map(v => ({
+    id: v.id_venta,
+    fecha: v.fechaVenta,
+    vendedor: v.usuario?.nombre || 'SISTEMA',
+    cliente: v.cliente?.nombre || 'Consumidor Final',
+    identificacion: v.cliente?.cedula || '9999999999',
+    // Concatenamos los nombres de los productos vendidos
+    productos: v.ventasDetalles.map(d => `${d.producto.nombre} (x${d.cantidad})`).join(', '),
+    metodo: v.metodoPago,
+    subtotal: Number(v.subtotal),
+    iva: Number(v.iva),
+    total: Number(v.total)
+  }));
+}
 }
