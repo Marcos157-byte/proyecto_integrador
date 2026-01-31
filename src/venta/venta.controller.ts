@@ -32,12 +32,23 @@ export class VentaController {
    * Ruta dedicada para que el cajero vea solo lo que él ha vendido
    */
   @Get('mis-ventas')
-  @Roles('ventas', 'admin')
+  @Roles('ventas', 'administrador')
   async findMisVentas(@Query() query: QueryDto, @Req() req) {
     const id_usuario = req.user.id_usuario;
     return this.ventaService.findMisVentas(id_usuario, query);
   }
+  
+  @Get('reporte/ranking')
+  @Roles('administrador') // Solo el jefe puede ver esto
+  getRanking() {
+    return this.ventaService.rankingVendedores();
+  }
 
+  @Get('reporte/usuario/:id')
+  @Roles('administrador')
+  getVentasUsuario(@Param('id') id: string) {
+    return this.ventaService.findVentasByUsuario(id);
+  }
   /**
    * 3. Estadísticas globales: Productos más vendidos
    */
@@ -62,7 +73,7 @@ export class VentaController {
   /**
    * 5. Historial General (Para administradores)
    */
-  @Get('all')
+  @Get()
   @Roles('admin')
   async findAll(@Query() query: QueryDto) {
     return this.ventaService.findAll(query);

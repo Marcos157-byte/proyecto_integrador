@@ -40,32 +40,34 @@
       return new SuccessResponseDto('Usuario creado correctamente', saved);
 
     }
-    async  findAll(query:QueryDto) {
-      
-      const{page,limit,search,searchField,sort,order} = query;
-      const qb = this.usuarioRepository.createQueryBuilder('usuario')
-      .leftJoinAndSelect('usuario.empleado', 'empleado')
-      .leftJoinAndSelect('usuario.rolUsuarios','rolUsuarios')
-      .leftJoinAndSelect('rolUsuarios.rol', 'rol')
-      .skip((page -1) * limit)
-      .take(limit);
+    async findAll(query: QueryDto) {
+  const { page, limit, search, searchField, sort, order } = query;
+  const qb = this.usuarioRepository.createQueryBuilder('usuario')
+    .leftJoinAndSelect('usuario.empleado', 'empleado')
+    .leftJoinAndSelect('usuario.rolUsuarios', 'rolUsuarios')
+    .leftJoinAndSelect('rolUsuarios.rol', 'rol')
+    .skip((page - 1) * limit)
+    .take(limit);
 
-      if(search && searchField) {
-        qb.andWhere(`usuario.${searchField} LIKE:search`, {search: `${search}`});
+  // CORRECCIÓN: Sintaxis segura para evitar Error 500
+  if (search && searchField) {
+    qb.andWhere(`usuario.${searchField} LIKE :search`, { search: `%${search}%` });
+  }
 
-      }
-      if(sort) {
-        qb.orderBy(`usuario.${sort}`, order ?? `ASC`);
-      }
-      const [data,total] = await qb.getManyAndCount();
-      return new SuccessResponseDto('Usuario obtenido correctamente',{
-        data,
-        total,
-        page,
-        limit
-      })
+  if (sort) {
+    qb.orderBy(`usuario.${sort}`, order ?? 'ASC');
+  } else {
+    qb.orderBy('usuario.nombre', 'ASC'); // Orden por defecto
+  }
 
-    }
+  const [data, total] = await qb.getManyAndCount();
+  return new SuccessResponseDto('Usuarios obtenidos correctamente', {
+    data,
+    total,
+    page: Number(page),
+    limit: Number(limit)
+  });
+}
     async findByEmail(email: string){
       return this.usuarioRepository.findOne({
       where: { email },

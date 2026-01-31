@@ -11,38 +11,15 @@ export class CajaService {
     private cajaRepository: Repository<Caja>,
   ) {}
 
-  // 1. APERTURA: Iniciar el turno del cajero
-  async abrirCaja(id_usuario: string, monto_apertura: number) {
-    // Validar si ya existe una caja abierta para este usuario
-    const cajaActiva = await this.cajaRepository.findOne({
-      where: { usuario: { id_usuario }, estado: 'abierta' },
-    });
-
-    if (cajaActiva) {
-      throw new BadRequestException('Ya tienes una sesión de caja activa. Debes cerrarla primero.');
-    }
-
-    const nuevaCaja = this.cajaRepository.create({
-      usuario: { id_usuario },
-      monto_apertura: Number(monto_apertura),
-      estado: 'abierta',
-      fecha_apertura: new Date(),
-    });
-
-    const guardado = await this.cajaRepository.save(nuevaCaja);
-    return new SuccessResponseDto('Caja abierta correctamente', guardado);
-  }
-
-  // 2. ESTADO ACTUAL: Consultar ventas acumuladas del turno
+  // 1. OBTENER ESTADO ACTUAL
   async getCajaActiva(id_usuario: string) {
     const caja = await this.cajaRepository.findOne({
       where: { usuario: { id_usuario }, estado: 'abierta' },
-      relations: ['ventas'], 
+      relations: ['ventas'],
     });
 
     if (!caja) return null;
 
-    // Calculamos solo ventas en EFECTIVO para el arqueo físico
     const ventasEfectivo = caja.ventas
       .filter(v => v.metodoPago.toLowerCase() === 'efectivo')
       .reduce((sum, v) => sum + Number(v.total), 0);
@@ -53,43 +30,59 @@ export class CajaService {
       monto_apertura: Number(caja.monto_apertura),
       ventas_efectivo: ventasEfectivo,
       monto_esperado: Number(caja.monto_apertura) + ventasEfectivo,
-      total_transacciones: caja.ventas.length
+      total_transacciones: caja.ventas.length,
     };
   }
 
-  // 3. CIERRE: Finalizar turno y calcular diferencia (Arqueo)
+  // 2. ABRIR CAJA (Con validación de duplicados)
+  async abrirCaja(id_usuario: string, monto_apertura: number) {
+    // IMPORTANTE: Validar si ya hay una caja abierta antes de crear otra
+    const cajaActiva = await this.cajaRepository.findOne({
+      where: { usuario: { id_usuario }, estado: 'abierta' },
+    });
+
+    if (cajaActiva) {
+      throw new BadRequestException('Ya tienes una sesión de caja activa.');
+    }
+
+    const nuevaCaja = this.cajaRepository.create({
+      usuario: { id_usuario } as any,
+      monto_apertura: Number(monto_apertura),
+      estado: 'abierta',
+      fecha_apertura: new Date(),
+    });
+
+    const guardado = await this.cajaRepository.save(nuevaCaja);
+    return new SuccessResponseDto('Caja abierta exitosamente', guardado);
+  }
+
+  // 3. CERRAR CAJA
   async cerrarCaja(id_usuario: string, monto_cierre: number) {
     const caja = await this.cajaRepository.findOne({
       where: { usuario: { id_usuario }, estado: 'abierta' },
       relations: ['ventas'],
     });
 
-    if (!caja) {
-      throw new NotFoundException('No tienes ninguna caja abierta para cerrar.');
-    }
+    if (!caja) throw new NotFoundException('No hay ninguna caja abierta para cerrar.');
 
     const ventasEfectivo = caja.ventas
       .filter(v => v.metodoPago.toLowerCase() === 'efectivo')
       .reduce((sum, v) => sum + Number(v.total), 0);
 
     const monto_esperado = Number(caja.monto_apertura) + ventasEfectivo;
-    const diferencia = Number(monto_cierre) - monto_esperado;
-
-    // Actualizamos la entidad
+    
     caja.monto_cierre = Number(monto_cierre);
     caja.fecha_cierre = new Date();
     caja.estado = 'cerrada';
 
     await this.cajaRepository.save(caja);
 
-    return new SuccessResponseDto('Caja cerrada y arqueo finalizado', {
+    return new SuccessResponseDto('Caja cerrada correctamente', {
       resumen: {
-        inicio: caja.monto_apertura,
-        ventas_efectivo: ventasEfectivo,
         total_esperado: monto_esperado,
-        contado_fisico: monto_cierre,
-        diferencia: diferencia, // Negativo = Faltante, Positivo = Sobrante
-        resultado: diferencia === 0 ? 'Caja Cuadrada' : diferencia < 0 ? 'Faltante' : 'Sobrante'
+        contado_fisico: Number(monto_cierre),
+        diferencia: Number(monto_cierre) - monto_esperado,
+        resultado: (Number(monto_cierre) - monto_esperado) === 0 ? 'Caja Cuadrada' : 'Diferencia detectada'
       }
     });
   }
