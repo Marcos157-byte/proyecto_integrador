@@ -385,7 +385,7 @@ export class VentaService {
     order: { fechaVenta: 'DESC' }
   });
 
-  // Mapeo detallado para el Excel y la Tabla
+  
   return ventas.map(v => ({
     id: v.id_venta,
     fecha: v.fechaVenta,
